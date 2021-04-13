@@ -15,18 +15,16 @@ endif()
 
 if(MACOSX OR ANDROID)
   set_target_properties(${target_name} PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/include"
-  )
-  set_target_properties(${target_name} PROPERTIES
     IMPORTED_LOCATION "${platform_spec_path}/libz.a"
   )
 elseif(WINDOWS)
   set_target_properties(${target_name} PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/../win32-specific/zlib/include"
-  )
-  set_target_properties(${target_name} PROPERTIES
-    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/../win32-specific/zlib/prebuilt/zlib1.dll"
-    IMPORTED_IMPLIB "${CMAKE_CURRENT_SOURCE_DIR}/../win32-specific/zlib/prebuilt/libzlib.lib"
+    IMPORTED_LOCATION "${platform_spec_path}/zlib1.dll"
+    IMPORTED_IMPLIB "${platform_spec_path}/libzlib.lib"
   )
 endif()
+
+set_target_properties(${target_name} PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
 

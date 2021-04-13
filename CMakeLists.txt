@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.6)
 project(external)
 
+enable_language(C CXX ASM)
+
 option(BUILD_EXT_BOX2D "Build with internal Box2D support" ON)
 option(BUILD_EXT_CHIPMUNK "Build with internal chipmunk support" ON)
 option(BUILD_EXT_FREETYPE2 "Build with internal freetype2 support" ON)
@@ -48,13 +50,56 @@ if(BUILD_EXT_BULLET)
     target_link_libraries(external ext_bullet)
 endif(BUILD_EXT_BULLET)
 if(BUILD_EXT_JPEG)
+    set(WITH_SIMD ${CMAKE_ASM_NASM_COMPILER_LOADED} CACHE BOOL "Build TurboJPEG with simd speed up" FORCE)
+    set(WITH_JPEG8 TRUE CACHE BOOL "Build libjpeg-turbo with JEPG8 API" FORCE)
+    set(ENABLE_SHARED FALSE CACHE BOOL "Build shared libraries" FORCE)
+    set(WITH_TURBOJPEG FALSE CACHE BOOL "Include the TurboJPEG API library and associated test programs" FORCE)
+    set(JTURBO_ENABLE_INSTALL FALSE CACHE BOOL "Enable libjpeg-turbo install" FORCE)
+    set(JTURBO_BUILD_TESTS FALSE CACHE BOOL "Build TurboJPEG tests and examples" FORCE)
+    set(JTURBO_BUILD_BINARIES FALSE CACHE BOOL "Build TurboJPEG binaries" FORCE)
     add_subdirectory(jpeg)
-    target_link_libraries(external ext_jpeg)
+    set_target_properties(jpeg
+            PROPERTIES
+            ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+            FOLDER "External"
+            )
+    set_target_properties(simd
+            PROPERTIES
+            ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+            FOLDER "External"
+            )
+    if(TARGET simd-objs)
+        set_target_properties(simd-objs
+                PROPERTIES
+                ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                FOLDER "External"
+                )
+    endif()
+    if(TARGET jsimdcfg)
+        set_target_properties(jsimdcfg
+                PROPERTIES
+                ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                FOLDER "External"
+                )
+    endif()
+    target_link_libraries(external jpeg)
+    target_include_directories(external INTERFACE
+            "${CMAKE_CURRENT_LIST_DIR}/jpeg"
+            "${JPEG_CONFIG_OUT_DIR}")
 endif(BUILD_EXT_JPEG)
+
 if(BUILD_EXT_OPENSSL)
     add_subdirectory(openssl)
-    target_link_libraries(external ext_ssl)
-    target_link_libraries(external ext_crypto)
+    if(ANDROID OR LINUX)
+        target_link_libraries(ext_ssl INTERFACE ext_crypto)
+        target_link_libraries(external ext_ssl)
+    else()
+        target_link_libraries(external ext_crypto ext_ssl)
+    endif()
 endif(BUILD_EXT_OPENSSL)
 if(BUILD_EXT_TIFF)
     add_subdirectory(tiff)
@@ -121,32 +166,41 @@ if(BUILD_LUA_LIBS)
     )
 endif()
 
+if(ANDROID)
+    add_subdirectory(android-specific/cpufeatures)
+    add_subdirectory(android-specific/pvmp3dec)
+    add_subdirectory(android-specific/tremolo)
+        target_link_libraries(external
+#            ext_cpufeatures
+            ext_pvmp3dec
+            ext_tremolo
+        )
+endif()
+
 if(NOT LINUX)
     if(BUILD_EXT_CURL)
         add_subdirectory(curl)
+        if(ANDROID OR LINUX)
+            target_link_libraries(ext_curl INTERFACE ext_ssl)
+        endif()
         target_link_libraries(external ext_curl)
     endif(BUILD_EXT_CURL)
+endif(NOT LINUX)
+
+if(NOT LINUX)
     add_subdirectory(png)
-    target_link_libraries(external 
-        ext_png
-    )
+    target_include_directories(png PRIVATE "zlib/include")
+    if(ANDROID)
+        target_include_directories(png PRIVATE ${cpufeatures_include_dir})
+        target_link_libraries(png INTERFACE cpufeatures)
+    endif()
+    target_link_libraries(external png)
 endif(NOT LINUX)
     
 if(LINUX)
     add_subdirectory(linux-specific/fmod)
     target_link_libraries(external 
         ext_fmod
-    )
-endif()
-
-if(ANDROID)
-    add_subdirectory(android-specific/cpufeatures)
-    add_subdirectory(android-specific/pvmp3dec)
-    add_subdirectory(android-specific/tremolo)
-    target_link_libraries(external 
-        ext_cpufeatures 
-        ext_pvmp3dec 
-        ext_tremolo
     )
 endif()
 
@@ -189,7 +243,7 @@ endif()
 # unzip depend on zlib
 if(BUILD_EXT_UNZIP)
     add_subdirectory(unzip)
-    target_link_libraries(external ext_unzip)
+    target_link_libraries(external unzip)
 endif(BUILD_EXT_UNZIP)
 
 # put "external" into External folder, too
