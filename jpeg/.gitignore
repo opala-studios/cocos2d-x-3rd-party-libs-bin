@@ -1,4 +1,4 @@
 # Ignore config files by cmake
-jconfig.h
+#jconfig.h
 jconfigint.h
 libjpeg.map
